@@ -1,0 +1,524 @@
+
+MyScreenManager:
+    ScreenIntro:
+    ScreenAddCategory:
+    ScreenCategoryManager:
+    ScreenPlayerManager:
+    ScreenAddPlayer:
+    ScreenEditPlayer:
+    ScreenTrainingManager:
+    ScreenAddTraining:
+    ScreenEditTraining:
+    ScreenReports:
+        
+<ScreenIntro>:
+    name: 'intro'
+    orientation: 'vertical'
+
+    BoxLayout:
+        id: layout_intro
+        orientation: 'vertical'
+        spacing: 10
+        padding: 50
+
+        Label:
+            text: 'LISTA DOLAZAKA'
+            font_size: 25
+            bold: True
+            size_hint_y: None
+            pos_hint: {'center_x': 0.5,'center_y': 0.8}
+            height: 50
+
+        Label:
+            text: app.klub
+            font_size: 25
+            bold: True
+            size_hint_y: None
+            pos_hint: {'center_x': 0.5,'center_y': 0.8}
+            height: 100
+
+        Image:
+            source: 'grb.png'
+            size_hint_y: None
+            height: 130
+            
+
+        BoxLayout:
+            orientation: 'vertical'
+            BoxLayout:
+                id: layout_category_buttons
+                orientation: 'vertical'   
+
+                Label:
+
+                Button:
+                    id: button_open_category_manager
+                    text: app.category_chosen
+                    pos_hint: {'center_x': 0.5,'center_y': 0.5}
+                    size_hint_y: None
+                    height: 50
+                    disabled: app.category_button_disabled
+
+                    on_release:
+                        app.root.current = 'category manager'
+                        root.manager.transition.direction = 'left' 
+                Label:
+            
+            Button:
+                text: 'ODABERI KATEGORIJU'
+                size_hint_y: None
+                height: 50
+                on_release:
+                    app.root.current = 'add_category'
+                    root.manager.transition.direction = 'left'
+
+            Button:
+                text: 'IZLAZ'
+                size_hint_y: None
+                height: 50
+                on_release: app.stop()       
+
+<ScreenAddCategory>:
+    name: "add_category"
+    orientation: 'vertical'
+
+    GridLayout:
+        cols: 1
+        
+        BoxLayout:
+            orientation: 'vertical'
+            spacing: 20
+            height: 300
+            size_hint: 1, None
+           
+            Label:
+                text: app.klub
+                halign: 'center'
+                valign: 'middle'
+                font_size: 25
+                bold: True
+                size_hint_y: None
+                height: 50
+
+            Image:
+                source: 'grb.png'
+                size_hint_y: None
+                height: 130
+
+            Label:
+                id: label_category
+                text: root.category_choice
+                halign: 'center'
+                valign: 'middle'
+                font_size: 25
+                bold: True
+                size_hint_y: None
+                height: 50
+
+        BoxLayout:
+            orientation: 'vertical'
+            spacing: 10
+            padding: 50
+            ScrollView:
+                BoxLayout:
+                    size_hint: 1, None
+                    height: self.minimum_height
+                    orientation: 'vertical'
+
+                    Button:
+                        id: button_prstici
+                        text: 'PRSTIĆI'
+                        size_hint_y: None
+                        height: 50
+                        on_release: root.category_choice = button_prstici.text
+                    Button:
+                        id: button_zagici
+                        text: 'ZAGIĆI'
+                        size_hint_y: None
+                        height: 50
+                        on_release: root.category_choice = button_zagici.text
+                    Button:
+                        id: button_limaci
+                        text: 'LIMAČI'
+                        size_hint_y: None
+                        height: 50
+                        on_release: root.category_choice = button_limaci.text
+                    Button:
+                        id: button_mladi_pioniri
+                        text: 'MLAĐI PIONIRI'
+                        size_hint_y: None
+                        height: 50
+                        on_release: root.category_choice = button_mladi_pioniri.text
+                    Button:
+                        id: button_pioniri
+                        text: 'PIONIRI'
+                        size_hint_y: None
+                        height: 50
+                        on_release: root.category_choice = button_pioniri.text
+                    Button:
+                        id: button_kadeti
+                        text: 'KADETI'
+                        size_hint_y: None
+                        height: 50
+                        on_release: root.category_choice = button_kadeti.text
+                    Button:
+                        id: button_juniori
+                        text: 'JUNIORI'
+                        size_hint_y: None
+                        height: 50
+                        on_release: root.category_choice = button_juniori.text               
+        BoxLayout:
+            orientation: 'horizontal'
+            height: 50
+            size_hint: 1, None
+            Button:
+                id: natrag
+                text: 'NATRAG'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    root.category_choice = 'NIJE ODABRANA'
+                    app.root.current = 'intro'
+                    root.manager.transition.direction = 'right'   
+            Button:
+                text: 'SPREMI'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    app.category_chosen = root.category_choice;\
+                    app.update_category_chosen_sql(app.category_chosen);\
+                    app.data_manager.create_database(app.category_chosen_sql_players, app.category_chosen_sql_sessions);\
+                    app.category_button_disabled = False;\
+                    app.root.current = 'intro'
+                    root.manager.transition.direction = 'right'
+
+<ScreenCategoryManager>:
+    name: 'category manager'
+    orientation: 'vertical'
+    GridLayout:
+        cols: 1
+        BoxLayout:
+            orientation: 'horizontal'
+            pos_hint: {'center_x': 0.5,'center_y': 0.95}
+            size_hint: 1, None
+            height: 50
+            Button:
+                padding: 10
+                height: dp(50)
+                width: dp(50)
+
+            Image:
+                source: 'grb.png'
+                size_hint_y: None
+                height: 45
+
+                allow_stretch: False
+            Label:
+                text: app.category_chosen
+
+        GridLayout:
+            spacing: 10
+            padding: 50
+            cols: 1
+                
+            Button:
+                text: 'IGRAČI'
+                pos_hint: {'center_y': 0.95}
+                size_hint_y: None
+                height: 50
+                on_release: 
+                    app.root.current = 'player manager'
+                    root.manager.transition.direction = 'left';\
+                    root.manager.get_screen('player manager').fetch_players(app.category_chosen_sql_players)
+            Button:
+                text: 'TRENINZI / UTAKMICE'
+                pos_hint: {'center_y': 0.95}
+                size_hint_y: None
+                height: 50
+                on_release:
+                    app.root.current = 'training manager'
+                    root.manager.transition.direction = 'left';
+            Button:
+                text: 'DOLASCI'
+                pos_hint: {'center_y': 0.95}
+                size_hint_y: None
+                height: 50
+                on_release:
+                    app.root.current = 'players training report'
+                    root.manager.transition.direction = 'left';
+
+        BoxLayout:
+            orientation: 'horizontal'
+            height: 50
+            size_hint: 1, None
+            Button:
+                text: 'NATRAG'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    app.root.current = 'intro'
+                    root.manager.transition.direction = 'right'   
+            Button:
+                text: 'IZLAZ'
+                height: 50
+                size_hint_y: None
+                on_release: app.stop()
+
+<ScreenPlayerManager>:
+    name: 'player manager'
+    orientation: 'vertical'
+    GridLayout:
+        cols: 1
+        GridLayout:
+            cols: 3
+            pos_hint: {'center_x': 0.5,'center_y': 0.95}
+            size_hint: 0.8, None
+            height: 50
+            Button:
+                padding: 10
+                height: dp(50)
+                width: dp(50)
+
+            Image:
+                source: 'grb.png'
+                size_hint_y: None
+                height: 45
+
+                allow_stretch: False
+            Label:
+                text: app.category_chosen
+        ScrollView:
+            GridLayout:
+                spacing: 10
+                padding: 50
+                size_hint: 1, None
+                height: self.minimum_height
+                id: player_box
+                cols: 1
+
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint: 1, 0.2
+            Button:
+                text: 'NATRAG'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    app.root.current = 'category manager'
+                    root.manager.transition.direction = 'right'   
+            Button:
+                id: edit_button
+                text: 'UREDI'
+                height: 50
+                size_hint_y: None
+                disabled: app.edit_button_disabled
+                on_release:
+                    app.root.current = 'edit player'
+                    root.manager.transition.direction = 'right'
+        # MOŽDA prvo napraviti da uredi uzima podatke sa toggle buttona, a onda u novom prozoru se unosi novi podaci
+
+            Button:
+                text: 'DODAJ'
+                height: 50
+                size_hint_y: None
+                on_release: 
+                    app.root.current = 'add player'
+                    root.manager.transition.direction = 'right'
+
+<ScreenAddPlayer>:
+    name: 'add player'
+    Label:
+    GridLayout:
+        cols: 2
+        pos_hint: {'center_x': 0.5,'center_y': 0.8}
+        size_hint: 1, 0.2
+        TextInput:
+            id: second_name
+            hint_text: 'Prezime igrača/ice'
+            multiline: False
+            focus: True
+        TextInput:
+            id: first_name
+            hint_text: 'Ime igrača/ice'
+            multiline: False
+            focus: True
+    BoxLayout:
+        orientation: 'horizontal'
+        Button:
+            text: 'NATRAG'
+            height: 50
+            size_hint_y: None
+            on_release:
+                app.root.current = 'player manager'
+                root.manager.transition.direction = 'right';
+                root.manager.get_screen('player manager').fetch_players(app.category_chosen_sql_players)
+        Button:
+            text: 'DODAJ'
+            height: 50
+            size_hint_y: None
+            on_release:
+                root.new_player(app.category_chosen_sql_players, first_name.text.strip(), second_name.text.strip())
+                second_name.text = '';\
+                first_name.text = ''
+<ScreenEditPlayer>:
+    name: 'edit player'
+    Label:
+        text: ''
+# Neka stavi igrača iz textinputa second_name_edit + first_name_edit
+    GridLayout:
+        cols: 2
+        pos_hint: {'center_x': 0.5,'center_y': 0.8}
+        size_hint: 1, 0.2
+        TextInput:
+            id: second_name_edit
+# Staviti da text u kućicama bude player_name_to_edit    
+            hint_text: 'Prezime igrača/ice'
+            multiline: False
+            focus: False
+        TextInput:
+            id: first_name_edit
+# Staviti da text u kućicama bude player_name_to_edit    
+            hint_text: 'Ime igrača/ice'
+            multiline: False
+            focus: False
+    BoxLayout:
+        orientation: 'horizontal'
+        Button:
+            text: 'NATRAG'
+            height: 50
+            size_hint_y: None
+            on_release:
+                app.root.current = 'player manager'
+                root.manager.transition.direction = 'right';
+                root.manager.get_screen('player manager').fetch_players(app.category_chosen_sql_players)
+        Button:
+            text: 'SPREMI'
+            height: 50
+            size_hint_y: None
+            on_release:
+                app.data_manager.update_category_player_data(app.category_chosen_sql_players,\ 
+                first_name_edit.text.strip(), second_name_edit.text.strip(),\ 
+                root.manager.get_screen('player manager').player_name_to_edit, root.manager.get_screen('player manager').player_surname_to_edit);\
+                root.manager.get_screen('player manager').fetch_players(app.category_chosen_sql_players);\
+                second_name_edit.text = '';\
+                first_name_edit.text = '';\
+                app.root.current = 'player manager'
+                root.manager.transition.direction = 'right';
+
+<ScreenTrainingManager>:
+    name: 'training manager'
+    GridLayout:
+        cols: 1
+        GridLayout:
+            cols: 3
+            pos_hint: {'center_x': 0.5,'center_y': 0.95}
+            size_hint: 0.8, None
+            height: 50
+            Button:
+                padding: 10
+                height: dp(50)
+                width: dp(50)
+
+            Image:
+                source: 'grb.png'
+                size_hint_y: None
+                height: 45
+
+                allow_stretch: False
+            Label:
+                text: app.category_chosen
+        ScrollView:
+            GridLayout:
+                id: training_box
+                spacing: 10
+                padding: 50
+                size_hint: 1, None
+                height: self.minimum_height
+                cols: 1
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint: 1, 0.2
+            Button:
+                text: 'NATRAG'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    app.root.current = 'category manager'
+                    root.manager.transition.direction = 'right'   
+            Button:
+                id: edit_button
+                text: 'UREDI'
+                height: 50
+                size_hint_y: None
+                disabled: app.edit_button_disabled
+                on_release:
+                    app.root.current = 'edit player'
+                    root.manager.transition.direction = 'right'
+            Button:
+                text: 'DODAJ'
+                height: 50
+                size_hint_y: None
+                on_release: 
+                    app.root.current = 'add player'
+                    root.manager.transition.direction = 'right'
+<ScreenAddTraining>:
+
+
+<ScreenEditTraining>:
+
+<ScreenReports>:
+    name: 'players training report'
+    GridLayout:
+        cols: 1
+        GridLayout:
+            cols: 3
+            pos_hint: {'center_x': 0.5,'center_y': 0.95}
+            size_hint: 0.8, None
+            height: 50
+            Button:
+                padding: 10
+                height: dp(50)
+                width: dp(50)
+
+            Image:
+                source: 'grb.png'
+                size_hint_y: None
+                height: 45
+
+                allow_stretch: False
+            Label:
+                text: app.category_chosen
+        ScrollView:
+            GridLayout:
+                spacing: 10
+                padding: 50
+                size_hint: 1, None
+                height: self.minimum_height
+                id: training_box
+                cols: 1
+        BoxLayout:
+            orientation: 'horizontal'
+            size_hint: 1, 0.2
+            Button:
+                text: 'NATRAG'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    app.root.current = 'category manager'
+                    root.manager.transition.direction = 'right'   
+            Button:
+                id: edit_button
+                text: 'UREDI'
+                height: 50
+                size_hint_y: None
+                disabled: app.edit_button_disabled
+                on_release:
+                    app.root.current = 'edit player'
+                    root.manager.transition.direction = 'right'
+            Button:
+                text: 'DODAJ'
+                height: 50
+                size_hint_y: None
+                on_release: 
+                    app.root.current = 'add player'
+                    root.manager.transition.direction = 'right'
