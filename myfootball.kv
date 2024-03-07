@@ -1,3 +1,4 @@
+# myfootball.kv
 
 MyScreenManager:
     ScreenIntro:
@@ -125,48 +126,55 @@ MyScreenManager:
                     height: self.minimum_height
                     orientation: 'vertical'
 
-                    Button:
+                    ToggleButton:
                         id: button_prstici
+                        group: 'category'
                         text: 'PRSTIĆI'
                         size_hint_y: None
                         height: 50
                         on_release: root.category_choice = button_prstici.text
-                    Button:
+                    ToggleButton:
                         id: button_zagici
+                        group: 'category'
                         text: 'ZAGIĆI'
                         size_hint_y: None
                         height: 50
                         on_release: root.category_choice = button_zagici.text
-                    Button:
+                    ToggleButton:
                         id: button_limaci
+                        group: 'category'
                         text: 'LIMAČI'
                         size_hint_y: None
                         height: 50
                         on_release: root.category_choice = button_limaci.text
-                    Button:
+                    ToggleButton:
                         id: button_mladi_pioniri
+                        group: 'category'
                         text: 'MLAĐI PIONIRI'
                         size_hint_y: None
                         height: 50
                         on_release: root.category_choice = button_mladi_pioniri.text
-                    Button:
+                    ToggleButton:
                         id: button_pioniri
+                        group: 'category'
                         text: 'PIONIRI'
                         size_hint_y: None
                         height: 50
                         on_release: root.category_choice = button_pioniri.text
-                    Button:
+                    ToggleButton:
                         id: button_kadeti
+                        group: 'category'
                         text: 'KADETI'
                         size_hint_y: None
                         height: 50
                         on_release: root.category_choice = button_kadeti.text
-                    Button:
+                    ToggleButton:
                         id: button_juniori
+                        group: 'category'
                         text: 'JUNIORI'
                         size_hint_y: None
                         height: 50
-                        on_release: root.category_choice = button_juniori.text               
+                        on_release: root.category_choice = button_juniori.text             
         BoxLayout:
             orientation: 'horizontal'
             height: 50
@@ -187,7 +195,9 @@ MyScreenManager:
                 on_release:
                     app.category_chosen = root.category_choice;\
                     app.update_category_chosen_sql(app.category_chosen);\
-                    app.data_manager.create_database(app.category_chosen_sql_players, app.category_chosen_sql_sessions);\
+                    print(app.category_chosen);\
+                    app.sql_manager.create_database(app.category_chosen_sql_players, app.category_chosen_sql_training);\
+                    app.sql_manager.insert_category_used(app.category_chosen);\
                     app.category_button_disabled = False;\
                     app.root.current = 'intro'
                     root.manager.transition.direction = 'right'
@@ -237,7 +247,8 @@ MyScreenManager:
                 height: 50
                 on_release:
                     app.root.current = 'training manager'
-                    root.manager.transition.direction = 'left';
+                    root.manager.transition.direction = 'left';\
+                    root.manager.get_screen('training manager').fetch_training(app.category_chosen_sql_training)
             Button:
                 text: 'DOLASCI'
                 pos_hint: {'center_y': 0.95}
@@ -246,6 +257,7 @@ MyScreenManager:
                 on_release:
                     app.root.current = 'players training report'
                     root.manager.transition.direction = 'left';
+                    root.manager.get_screen('add training').fetch_players(app.category_chosen_sql_players, 'attendance_list')
 
         BoxLayout:
             orientation: 'horizontal'
@@ -267,6 +279,8 @@ MyScreenManager:
 <ScreenPlayerManager>:
     name: 'player manager'
     orientation: 'vertical'
+    on_pre_enter:
+        app.edit_button_disabled = True
     GridLayout:
         cols: 1
         GridLayout:
@@ -287,15 +301,21 @@ MyScreenManager:
                 allow_stretch: False
             Label:
                 text: app.category_chosen
+        Label:
+            size_hint: 1, None
+            height: 100
+            text: 'Uneseni igrači/ice:'
         ScrollView:
             GridLayout:
+                cols: 2
+                id: player_box
                 spacing: 10
                 padding: 50
                 size_hint: 1, None
                 height: self.minimum_height
-                id: player_box
-                cols: 1
-
+                text_size: self.size
+                halign: 'left'
+                
         BoxLayout:
             orientation: 'horizontal'
             size_hint: 1, 0.2
@@ -314,7 +334,7 @@ MyScreenManager:
                 disabled: app.edit_button_disabled
                 on_release:
                     app.root.current = 'edit player'
-                    root.manager.transition.direction = 'right'
+                    root.manager.transition.direction = 'left'
         # MOŽDA prvo napraviti da uredi uzima podatke sa toggle buttona, a onda u novom prozoru se unosi novi podaci
 
             Button:
@@ -323,15 +343,36 @@ MyScreenManager:
                 size_hint_y: None
                 on_release: 
                     app.root.current = 'add player'
-                    root.manager.transition.direction = 'right'
+                    root.manager.transition.direction = 'left'
 
 <ScreenAddPlayer>:
     name: 'add player'
+    GridLayout:
+        cols: 1
+        GridLayout:
+            cols: 3
+            pos_hint: {'center_x': 0.5,'center_y': 0.95}
+            size_hint: 0.8, None
+            height: 50
+            Button:
+                padding: 10
+                height: dp(50)
+                width: dp(50)
+
+            Image:
+                source: 'grb.png'
+                size_hint_y: None
+                height: 45
+
+                allow_stretch: False
+            Label:
+                text: app.category_chosen
     Label:
     GridLayout:
         cols: 2
         pos_hint: {'center_x': 0.5,'center_y': 0.8}
-        size_hint: 1, 0.2
+        size_hint: 1, 0.1
+        padding: 20
         TextInput:
             id: second_name
             hint_text: 'Prezime igrača/ice'
@@ -362,23 +403,49 @@ MyScreenManager:
                 first_name.text = ''
 <ScreenEditPlayer>:
     name: 'edit player'
+    on_pre_enter:
+        second_name_edit.text = app.player_edit[1]
+        first_name_edit.text = app.player_edit[0]
+    GridLayout:
+        cols: 1
+        GridLayout:
+            cols: 3
+            pos_hint: {'center_x': 0.5,'center_y': 0.95}
+            size_hint: 0.8, None
+            height: 50
+            Button:
+                padding: 10
+                height: dp(50)
+                width: dp(50)
+
+            Image:
+                source: 'grb.png'
+                size_hint_y: None
+                height: 45
+
+                allow_stretch: False
+            Label:
+                text: app.category_chosen
     Label:
         text: ''
 # Neka stavi igrača iz textinputa second_name_edit + first_name_edit
     GridLayout:
         cols: 2
         pos_hint: {'center_x': 0.5,'center_y': 0.8}
-        size_hint: 1, 0.2
+        size_hint: 1, 0.1
+        padding: 20
         TextInput:
             id: second_name_edit
 # Staviti da text u kućicama bude player_name_to_edit    
             hint_text: 'Prezime igrača/ice'
+            text: ''
             multiline: False
             focus: False
         TextInput:
             id: first_name_edit
 # Staviti da text u kućicama bude player_name_to_edit    
             hint_text: 'Ime igrača/ice'
+            text: ''
             multiline: False
             focus: False
     BoxLayout:
@@ -396,9 +463,9 @@ MyScreenManager:
             height: 50
             size_hint_y: None
             on_release:
-                app.data_manager.update_category_player_data(app.category_chosen_sql_players,\ 
+                app.sql_manager.update_category_player_data(app.category_chosen_sql_players,\ 
                 first_name_edit.text.strip(), second_name_edit.text.strip(),\ 
-                root.manager.get_screen('player manager').player_name_to_edit, root.manager.get_screen('player manager').player_surname_to_edit);\
+                app.player_edit);\
                 root.manager.get_screen('player manager').fetch_players(app.category_chosen_sql_players);\
                 second_name_edit.text = '';\
                 first_name_edit.text = '';\
@@ -407,6 +474,9 @@ MyScreenManager:
 
 <ScreenTrainingManager>:
     name: 'training manager'
+    on_pre_enter:
+        app.edit_button_disabled
+        root.players_list = []
     GridLayout:
         cols: 1
         GridLayout:
@@ -427,14 +497,18 @@ MyScreenManager:
                 allow_stretch: False
             Label:
                 text: app.category_chosen
+        Label:
+            text: 'Uneseni treninzi/utakmice:'
+            size_hint: 1, None
+            height: 100
         ScrollView:
             GridLayout:
                 id: training_box
+                cols: 2
                 spacing: 10
                 padding: 50
                 size_hint: 1, None
                 height: self.minimum_height
-                cols: 1
         BoxLayout:
             orientation: 'horizontal'
             size_hint: 1, 0.2
@@ -452,22 +526,255 @@ MyScreenManager:
                 size_hint_y: None
                 disabled: app.edit_button_disabled
                 on_release:
-                    app.root.current = 'edit player'
+                    app.root.current = 'edit training'
                     root.manager.transition.direction = 'right'
+                    root.manager.get_screen('add training').fetch_players(app.category_chosen_sql_players, 'update')
+
             Button:
                 text: 'DODAJ'
                 height: 50
                 size_hint_y: None
                 on_release: 
-                    app.root.current = 'add player'
-                    root.manager.transition.direction = 'right'
+                    app.root.current = 'add training'
+                    root.manager.transition.direction = 'right';\
+                    root.manager.get_screen('add training').fetch_players(app.category_chosen_sql_players, 'else')
+                    
 <ScreenAddTraining>:
 
+    name: 'add training'
+    orientation: 'vertical'
+    on_pre_enter:
+        root.players_list = []
+    GridLayout:
+        cols: 1
+        GridLayout:
+            cols: 3
+            pos_hint: {'center_x': 0.5,'center_y': 0.95}
+            size_hint: 1, None
+            height: 50
+            Button:
+                padding: 10
+                height: dp(50)
+                width: dp(50)
 
+            Image:
+                source: 'grb.png'
+                size_hint_y: None
+                height: 45
+
+                allow_stretch: False
+            Label:
+                text: app.category_chosen
+        GridLayout:
+            cols: 3
+            padding: 50
+            spacing: 20
+            size_hint_y: None
+            height: 250
+            Label:
+                text:'DAN'
+                size_hint_y: None
+                height: 50
+            Label:
+                text:'MJESEC'
+                size_hint_y: None
+                height: 50
+            Label:
+                text:'GODINA'
+                size_hint_y: None
+                height: 50
+            Spinner:
+                id: day_input
+                text: root.day_today
+                values: root.days_list
+                size_hint_y: None
+                height: 50
+            Spinner:
+                id: month_input
+                text: root.month_today
+                values: root.months_list
+                size_hint_y: None
+                height: 50
+            Spinner:
+                id: year_input
+                text: root.year_today
+                values: root.years_list
+                size_hint_y: None
+                height: 50
+            Label:
+                id: training_label
+                text: 'TRENING'
+                size_hint_y: None
+                height: 20
+            Switch:
+                id: training_switch
+                active: True
+                on_active: root.switch_state(*args)
+                size_hint_y: None
+                height: 20
+            Label:
+                id: match_label
+                text: 'UTAKMICA'
+                size_hint_y: None
+                color: 0.5, 0.5, 0.5, 1
+                height: 20
+            
+        Label:
+            text: 'Odaberi prisutne igrače:'
+            size_hint: 1, None
+            height: 20
+
+        ScrollView:
+            GridLayout:
+                spacing: 10
+                padding: 50
+                size_hint: 1, None
+                height: self.minimum_height
+                id: player_box
+                cols: 2  
+        BoxLayout:
+            orientation: 'horizontal'
+            height: 50
+            size_hint: 1, None
+            Button:
+                id: natrag
+                text: 'NATRAG'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    root.category_choice = 'NIJE ODABRANA'
+                    app.root.current = 'training manager'
+                    root.manager.transition.direction = 'right'   
+            Button:
+                text: 'SPREMI'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    root.new_training(app.category_chosen_sql_training, day_input.text, month_input.text, year_input.text);\
+                    root.manager.get_screen('training manager').fetch_training(app.category_chosen_sql_training);\
+                    app.root.current = 'training manager'
+                    root.manager.transition.direction = 'left'
 <ScreenEditTraining>:
+    name: 'edit training'
+    orientation: 'vertical'
+    on_pre_enter:
+        day_input.text = str(app.create_date(app.training_chosen).day)
+        month_input.text = str(app.create_date(app.training_chosen).month)
+        year_input.text = str(app.create_date(app.training_chosen).year)
+        root.manager.get_screen('add training').players_list = []
+        training_switch.active = root.check_training_match(app.training_chosen)
+    GridLayout:
+        cols: 1
+        GridLayout:
+            cols: 3
+            pos_hint: {'center_x': 0.5,'center_y': 0.95}
+            size_hint: 1, None
+            height: 50
+            Button:
+                padding: 10
+                height: dp(50)
+                width: dp(50)
 
+            Image:
+                source: 'grb.png'
+                size_hint_y: None
+                height: 45
+                allow_stretch: False
+            Label:
+                text: app.category_chosen
+        GridLayout:
+            cols: 3
+            padding: 50
+            spacing: 20
+            size_hint_y: None
+            height: 250
+            Label:
+                text:'DAN'
+                size_hint_y: None
+                height: 50
+            Label:
+                text:'MJESEC'
+                size_hint_y: None
+                height: 50
+            Label:
+                text:'GODINA'
+                size_hint_y: None
+                height: 50
+            Spinner:
+                id: day_input
+                text: '1'
+                values: root.manager.get_screen('add training').days_list
+                size_hint_y: None
+                height: 50
+            Spinner:
+                id: month_input
+                text: '1'
+                values: root.manager.get_screen('add training').months_list
+                size_hint_y: None
+                height: 50
+            Spinner:
+                id: year_input
+                text: '2024'
+                values: root.manager.get_screen('add training').years_list
+                size_hint_y: None
+                height: 50
+            Label:
+                id: training_label
+                text: 'TRENING'
+                size_hint_y: None
+                height: 20
+            Switch:
+                id: training_switch
+                on_active: root.switch_state(*args)                
+                size_hint_y: None
+                height: 20
+            Label:
+                id: match_label
+                text: 'UTAKMICA'
+                size_hint_y: None
+                color: 0.5, 0.5, 0.5, 1
+                height: 20
+            
+        Label:
+            text: 'Odaberi prisutne igrače:'
+            size_hint: 1, None
+            height: 20
+
+        ScrollView:
+            GridLayout:
+                spacing: 10
+                padding: 50
+                size_hint: 1, None
+                height: self.minimum_height
+                id: player_box
+                cols: 2  
+        BoxLayout:
+            orientation: 'horizontal'
+            height: 50
+            size_hint: 1, None
+            Button:
+                id: natrag
+                text: 'NATRAG'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    root.category_choice = 'NIJE ODABRANA'
+                    app.root.current = 'training manager'
+                    root.manager.transition.direction = 'right'   
+            Button:
+                text: 'SPREMI'
+                height: 50
+                size_hint_y: None
+                on_release:
+                    root.update_training(app.category_chosen_sql_training, day_input.text, month_input.text, year_input.text, root.manager.get_screen('add training').players_list);\
+                    root.manager.get_screen('training manager').fetch_training(app.category_chosen_sql_training);\
+                    app.root.current = 'training manager'
+                    root.manager.transition.direction = 'left'
 <ScreenReports>:
     name: 'players training report'
+    on_pre_enter:
+        month_input.text = str(root.manager.get_screen('add training').current_date.month)
+        year_input.text = str(root.manager.get_screen('add training').current_date.year)
     GridLayout:
         cols: 1
         GridLayout:
@@ -488,14 +795,48 @@ MyScreenManager:
                 allow_stretch: False
             Label:
                 text: app.category_chosen
+        GridLayout:
+            cols: 2
+            padding: [50, 10, 50, 10]
+            spacing: [10, 10]
+            size_hint_y: None
+            height: 200
+            Label:
+                text:'MJESEC'
+                size_hint_y: None
+                height: 50
+            Label:
+                text:'GODINA'
+                size_hint_y: None
+                height: 50
+            Spinner:
+                id: month_input
+                values: root.manager.get_screen('add training').months_list
+                size_hint_y: None
+                height: 50
+            Spinner:
+                id: year_input
+                values: root.manager.get_screen('add training').years_list
+                size_hint_y: None
+                height: 50
+            Label:
+                text:'Igrač/ica'
+                size_hint_y: None
+                height: 50
+            Label:
+                text:'Dolasci'
+                size_hint_y: None
+                height: 50
+    
+                        
         ScrollView:
             GridLayout:
-                spacing: 10
-                padding: 50
+                padding: [50, 10, 50, 10]
+                spacing: [10, 10]
                 size_hint: 1, None
                 height: self.minimum_height
                 id: training_box
-                cols: 1
+                cols: 2
         BoxLayout:
             orientation: 'horizontal'
             size_hint: 1, 0.2
@@ -508,17 +849,15 @@ MyScreenManager:
                     root.manager.transition.direction = 'right'   
             Button:
                 id: edit_button
-                text: 'UREDI'
+                text: 'OSVJEŽI'
                 height: 50
                 size_hint_y: None
-                disabled: app.edit_button_disabled
                 on_release:
-                    app.root.current = 'edit player'
-                    root.manager.transition.direction = 'right'
+                    training_box.clear_widgets()
+                    root.manager.get_screen('add training').fetch_players(app.category_chosen_sql_players, 'attendance_list')
             Button:
-                text: 'DODAJ'
+                text: 'IZVEZI'
                 height: 50
                 size_hint_y: None
                 on_release: 
-                    app.root.current = 'add player'
-                    root.manager.transition.direction = 'right'
+                    None
