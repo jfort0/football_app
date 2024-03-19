@@ -1,13 +1,9 @@
+
 from kivy.app import App
 from kivy.lang import Builder
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.properties import ObjectProperty, BooleanProperty, StringProperty, NumericProperty
 from kivy.uix.popup import Popup
-import sqlite3
-import os
-import datetime as dt
-import json
-
 from kivy.uix.scrollview import ScrollView
 from kivy.core.window import Window
 from kivy.uix.widget import Widget
@@ -17,7 +13,21 @@ from kivy.uix.togglebutton import ToggleButton
 from kivy.graphics import Color
 from kivy.uix.button import Button
 from kivy.uix.gridlayout import GridLayout
-from kivymd.app import MDApp
+
+import sqlite3
+import os
+import datetime as dt
+import json
+import pandas as pd
+import reportlab
+
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfmetrics
+
+
 
 class SqlManager:
     # Klasa za upravljanje bazama podataka
@@ -261,8 +271,102 @@ WHERE datum = ?
         finally:
             if sqlite_connection:
                 sqlite_connection.close()
+
+    def sql_to_pdf(self, category_players, category_sessions, target_month, target_year):
+        sqlite_connection = sqlite3.connect(self.database_same_dir)
+        sql_query = pd.read_sql_query(f'''
+                               SELECT
+                               *
+                               FROM {category_players}
+                               ''', sqlite_connection)
+
+        df_igraci = pd.DataFrame(sql_query, columns = ['id', 'ime', 'prezime'])
+        print (f'df_igraci \n{df_igraci}')
+
+        sql_query = pd.read_sql_query(f'''
+                                    SELECT
+                                    *
+                                    FROM {category_sessions}
+                                    WHERE strftime('%m', datum) = '{target_month.zfill(2)}'
+                                    AND strftime('%Y', datum) = '{target_year}'
+                                    ''', sqlite_connection)
+
+        df_dolasci = pd.DataFrame(sql_query, columns = ['id', 'datum', 'igraci'])
+        print(f'df_dolasci \n{df_dolasci}')
+        df_datumi = df_dolasci['datum']
+        dates = df_datumi.tolist()
+        print(f'dates \n{dates}')
+        df_dates = pd.DataFrame(columns=dates)
+        df_result = pd.concat([df_igraci, df_dates], axis=1)
+        print(f'df_result \n{df_result}')
+
+        for ind in df_dolasci.index:
+            df_dolasci_id = df_dolasci.at[ind, 'igraci']
+            print(f'df_dolasci_id \n{df_dolasci_id}')
+            df_dolasci_date = df_dolasci.at[ind, 'datum']
+            print(f'df_dolasci_date \n{df_dolasci_date}')
+            for index, row in df_result.iterrows():
+                print(f'str(row["id"]) \n{str(row["id"])}')
+                if str(row['id']) in str(df_dolasci_id):
+                    print('DAAAA')
+                    print(row[df_dolasci_date])
+                    df_result.at[index, df_dolasci_date] = 'DA'
+                else:
+                    print('NEEEE')
+                    df_result.at[index, df_dolasci_date] = 'NE'
+                    
+        columns_to_count = df_result.columns[3:]
+        sessions_count = df_result.shape[1] - 3
+        attendance_count  = df_result[columns_to_count].apply(lambda row: row.str.count("DA").sum(), axis=1)
+        attendance_info = attendance_count.astype(str) + ' / ' + str(sessions_count)
+        df_result.insert(3, 'Dolasci', attendance_info)
+
+        date_format = '%Y-%m-%d %H:%M:%S'  # Example format, adjust as needed
+        for col in df_result.columns[4:]:
+            print(col)
+            new_col_name = dt.datetime.strptime(col, date_format).strftime('%d.%m.%Y')
+            print(col)
+            df_result.rename(columns={col: new_col_name}, inplace=True)
+
+        df_result.rename(columns={'ime': 'Ime', 'prezime': 'Prezime'}, inplace=True)
+
+        print(f'df_result FINAL \n{df_result}')
+        df_result.drop(['id'], axis=1, inplace=True)
+
+        pdf = SimpleDocTemplate(f"{category_sessions} {target_month}.{target_year}.pdf", pagesize=landscape(reportlab.lib.pagesizes.A4), leftMargin=50)
+        table_data = [list(df_result.columns)]
+        for i, row in df_result.iterrows():
+            table_data.append(list(row))
+
+        table = Table(table_data)
+
+        pdfmetrics.registerFont(TTFont('Arial', 'arial.ttf'))  
+
+        table_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Arial'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Arial'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+        ])
+
+        table.setStyle(table_style)
+
+        pdf_table = []
+        pdf_table.append(table)
+
+        pdf.build(pdf_table)
+
         
 
+        
 class MyScreenManager(ScreenManager):
     def __init__(self, **kw):
         super(MyScreenManager, self).__init__(**kw)
@@ -290,6 +394,12 @@ class ScreenAddCategory(Screen):
         self.category_choice = 'NIJE ODABRANA'
     #?????????
     new_category = StringProperty('ODABERI KATEGORIJU')
+
+    def on_toggle_press(self, instance, value):
+        if value == 'down':
+            self.category_choice = instance.text
+        else:
+            self.category_choice = 'NIJE ODABRANA'
 
     #?????????
     def update_category(self, widget):
@@ -597,6 +707,7 @@ class MyFootballApp(App):
     edit_button_disabled = BooleanProperty(True)
     
     def build(self): 
+
         self.category_chosen = 'NEMA KATEGORIJE'
         self.category_button_disabled = True
         

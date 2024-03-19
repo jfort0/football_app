@@ -24,6 +24,7 @@ MyScreenManager:
 
         Label:
             text: 'LISTA DOLAZAKA'
+            halign: "center"
             font_size: 25
             bold: True
             size_hint_y: None
@@ -32,6 +33,7 @@ MyScreenManager:
 
         Label:
             text: app.klub
+            halign: "center"
             font_size: 25
             bold: True
             size_hint_y: None
@@ -46,6 +48,7 @@ MyScreenManager:
 
         BoxLayout:
             orientation: 'vertical'
+            spacing: 10
             BoxLayout:
                 id: layout_category_buttons
                 orientation: 'vertical'   
@@ -56,18 +59,22 @@ MyScreenManager:
                     id: button_open_category_manager
                     text: app.category_chosen
                     pos_hint: {'center_x': 0.5,'center_y': 0.5}
-                    size_hint_y: None
+                    theme_width: "Custom"
+                    size_hint: 0.8, None
                     height: 50
                     disabled: app.category_button_disabled
 
                     on_release:
                         app.root.current = 'category manager'
                         root.manager.transition.direction = 'left' 
+
                 Label:
             
             Button:
+                pos_hint: {'center_x': 0.5}
                 text: 'ODABERI KATEGORIJU'
-                size_hint_y: None
+                theme_width: "Custom"
+                size_hint: 0.8, None
                 height: 50
                 on_release:
                     app.root.current = 'add_category'
@@ -75,9 +82,12 @@ MyScreenManager:
 
             Button:
                 text: 'IZLAZ'
-                size_hint_y: None
+                pos_hint: {'center_x': 0.5}
+                theme_width: "Custom"
+                size_hint: 0.8, None
                 height: 50
-                on_release: app.stop()       
+                on_release: app.stop()  
+
 
 <ScreenAddCategory>:
     name: "add_category"
@@ -90,7 +100,7 @@ MyScreenManager:
             orientation: 'vertical'
             spacing: 20
             height: 300
-            size_hint: 1, None
+            adaptive_height: True
            
             Label:
                 text: app.klub
@@ -120,78 +130,104 @@ MyScreenManager:
             orientation: 'vertical'
             spacing: 10
             padding: 50
-            ScrollView:
-                BoxLayout:
-                    size_hint: 1, None
-                    height: self.minimum_height
-                    orientation: 'vertical'
+    
+            ScrollView:   
+         
+                GridLayout:
+                    cols: 1
+                    #adaptive_height: True
+                    size_hint_y: None  # Set size_hint_y to None to allow fixed height
+                    height: self.minimum_height  # Set height to accommodate children
+                    spacing: 10
 
-                    ToggleButton:
+                    Button:
                         id: button_prstici
                         group: 'category'
-                        text: 'PRSTIĆI'
-                        size_hint_y: None
+                        text: 'PRSTIĆI'                        
+                        pos_hint: {'center_x': 0.5}
+                        theme_width: "Custom"
+                        size_hint: 0.8, None
                         height: 50
                         on_release: root.category_choice = button_prstici.text
-                    ToggleButton:
+
+                    Button:
                         id: button_zagici
                         group: 'category'
                         text: 'ZAGIĆI'
-                        size_hint_y: None
+                        pos_hint: {'center_x': 0.5}
+                        theme_width: "Custom"
+                        size_hint: 0.8, None
                         height: 50
                         on_release: root.category_choice = button_zagici.text
-                    ToggleButton:
+
+                    Button:
                         id: button_limaci
                         group: 'category'
                         text: 'LIMAČI'
-                        size_hint_y: None
+                        pos_hint: {'center_x': 0.5}
+                        theme_width: "Custom"
+                        size_hint: 0.8, None
                         height: 50
                         on_release: root.category_choice = button_limaci.text
-                    ToggleButton:
+
+                    Button:
                         id: button_mladi_pioniri
                         group: 'category'
                         text: 'MLAĐI PIONIRI'
-                        size_hint_y: None
+                        pos_hint: {'center_x': 0.5}
+                        theme_width: "Custom"
+                        size_hint: 0.8, None
                         height: 50
                         on_release: root.category_choice = button_mladi_pioniri.text
-                    ToggleButton:
+
+                    Button:
                         id: button_pioniri
                         group: 'category'
                         text: 'PIONIRI'
-                        size_hint_y: None
+                        pos_hint: {'center_x': 0.5}
+                        theme_width: "Custom"
+                        size_hint: 0.8, None
                         height: 50
                         on_release: root.category_choice = button_pioniri.text
-                    ToggleButton:
+
+                    Button:
                         id: button_kadeti
                         group: 'category'
                         text: 'KADETI'
-                        size_hint_y: None
-                        height: 50
+                        pos_hint: {'center_x': 0.5}
+                        theme_width: "Custom"
+                        size_hint: 0.8, None
+                        height: 50 
                         on_release: root.category_choice = button_kadeti.text
-                    ToggleButton:
+
+                    Button:
                         id: button_juniori
                         group: 'category'
                         text: 'JUNIORI'
-                        size_hint_y: None
+                        pos_hint: {'center_x': 0.5}
+                        theme_width: "Custom"
+                        size_hint: 0.8, None
                         height: 50
-                        on_release: root.category_choice = button_juniori.text             
-        BoxLayout:
-            orientation: 'horizontal'
+                        on_release: root.category_choice = button_juniori.text
+ 
+        GridLayout:
+            cols: 2
             height: 50
             size_hint: 1, None
             Button:
                 id: natrag
                 text: 'NATRAG'
+                size_hint: 1, None
                 height: 50
-                size_hint_y: None
                 on_release:
                     root.category_choice = 'NIJE ODABRANA'
                     app.root.current = 'intro'
-                    root.manager.transition.direction = 'right'   
+                    root.manager.transition.direction = 'right'  
+
             Button:
                 text: 'SPREMI'
+                size_hint: 1, None
                 height: 50
-                size_hint_y: None
                 on_release:
                     app.category_chosen = root.category_choice;\
                     app.update_category_chosen_sql(app.category_chosen);\
@@ -257,8 +293,9 @@ MyScreenManager:
                 on_release:
                     app.root.current = 'players training report'
                     root.manager.transition.direction = 'left';
+                    root.manager.get_screen('players training report').ids.training_box.clear_widgets();
                     root.manager.get_screen('add training').fetch_players(app.category_chosen_sql_players, 'attendance_list')
-
+                    
         BoxLayout:
             orientation: 'horizontal'
             height: 50
@@ -313,8 +350,6 @@ MyScreenManager:
                 padding: 50
                 size_hint: 1, None
                 height: self.minimum_height
-                text_size: self.size
-                halign: 'left'
                 
         BoxLayout:
             orientation: 'horizontal'
@@ -860,4 +895,6 @@ MyScreenManager:
                 height: 50
                 size_hint_y: None
                 on_release: 
-                    None
+                    training_box.clear_widgets()
+                    root.manager.get_screen('add training').fetch_players(app.category_chosen_sql_players, 'attendance_list')
+                    app.sql_manager.sql_to_pdf(app.category_chosen_sql_players, app.category_chosen_sql_training, root.ids.month_input.text, root.ids.year_input.text)
