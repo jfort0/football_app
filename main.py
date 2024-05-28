@@ -10,24 +10,20 @@ from kivy.uix.widget import Widget
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.togglebutton import ToggleButton
-from kivy.graphics import Color
+from kivy.graphics import Color, Rectangle
 from kivy.uix.button import Button
 from kivy.uix.gridlayout import GridLayout
+from kivy.metrics import dp
+from kivy.utils import get_color_from_hex
 
 import sqlite3
 import os
 import datetime as dt
 import json
 import pandas as pd
-import reportlab
-
-from reportlab.lib.pagesizes import letter, landscape
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
-from reportlab.lib import colors
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfbase import pdfmetrics
-
-
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 class SqlManager:
     # Klasa za upravljanje bazama podataka
@@ -57,10 +53,6 @@ class SqlManager:
     # Stvori bazu podataka i tablice kategorije (popis igrača i dolazaka)    
     def create_database(self, category_players, category_sessions):
         print(f'Category chosen for database func: {category_players, category_sessions}')
-        """tables_list = ['prstići', 'zagići', 'limači', 'mlađi pioniri', 'pioniri', 'kadeti', 'juniori', 'seniori']
-        if category.lower() not in tables_list:
-            print('Nema ga')
-            return"""
         query_category_database = f"""
 CREATE TABLE IF NOT EXISTS {category_players}(
 id INTEGER PRIMARY KEY,
@@ -74,7 +66,7 @@ CREATE TABLE IF NOT EXISTS {category_sessions}(
 id INTEGER PRIMARY KEY,
 datum DATETIME NOT NULL UNIQUE,
 trening_tekma TEXT NOT NULL,
-igraci INTEGER UNIQUE,
+igraci INTEGER,
 FOREIGN KEY (igraci) REFERENCES {category_players}(id));
 """
         query_last_used_database = f"""
@@ -102,7 +94,7 @@ kategorija TEXT);
             cursor.close()
             return [category for category in category_list]
         except sqlite3.Error as e:
-            print(f'Error open player data - {e}')
+            print(f'Error open used_category - {e}')
             return []
         
     def insert_category_used(self, category_chosen):
@@ -137,12 +129,12 @@ kategorija TEXT);
             cursor.close()
             return [player for player in category_players]
         except sqlite3.Error as e:
-            print(f'Error open used_category - {e}')
+            print(f'Error open player data - {e}')
             return []
         
     def insert_category_player_data(self, category, player_list):
         insert_query = f"""
-INSERT INTO {category} (ime, prezime) VALUES (?, ?)
+INSERT INTO {category} (ime, prezime, aktivan) VALUES (?, ?, ?)
 """
         try:
             sqlite_connection = sqlite3.connect(self.database_same_dir)
@@ -161,23 +153,24 @@ INSERT INTO {category} (ime, prezime) VALUES (?, ?)
             if sqlite_connection:
                 sqlite_connection.close()
 
-    def update_category_player_data(self, category, new_player_name, new_player_surname, old_player_info):
+    def update_category_player_data(self, category, new_player_name, new_player_surname, new_player_active, old_player_info):
         update_query = f"""
 UPDATE {category}
-SET ime = ?, prezime = ?
-WHERE ime = ? AND prezime = ?
+SET ime = ?, prezime = ?, aktivan = ?
+WHERE ime = ? 
+AND prezime = ?
 """
         try:
             sqlite_connection = sqlite3.connect(self.database_same_dir)
             cursor = sqlite_connection.cursor()
-            cursor.execute(update_query, (new_player_name, new_player_surname, old_player_info[0], old_player_info[1]))
+            cursor.execute(update_query, (new_player_name, new_player_surname, new_player_active, old_player_info[0].strip(), old_player_info[1].strip()))
             sqlite_connection.commit()
-            print(new_player_name, new_player_surname, old_player_info[0], old_player_info[1])
+            print(category, new_player_name, new_player_surname, new_player_active, old_player_info[0], old_player_info[1])
             cursor.close()
         except sqlite3.IntegrityError as b:
             message = 'Već imaš igrača/icu s tim imenom!'
             App.get_running_app().show_error_popup(message)
-            print(f'Error update training - {b}')
+            print(f'Error update player - {b}')
         except sqlite3.Error as e:
             print(f'Error update player - {e}')
 
@@ -215,7 +208,7 @@ INSERT INTO {category} (datum, trening_tekma, igraci) VALUES (?, ?, ?)
         except sqlite3.IntegrityError as b:
             message = 'Imaš dva treninga/utakmice s istim datumom!'
             App.get_running_app().show_error_popup(message)
-            print(f'Error update training - {b}')
+            print(f'Error insert training - {b}')
         except sqlite3.Error as e:
             print(f'Error insert training - {e}')
         finally:
@@ -273,6 +266,7 @@ WHERE datum = ?
                 sqlite_connection.close()
 
     def sql_to_pdf(self, category_players, category_sessions, target_month, target_year):
+        app = App.get_running_app()
         sqlite_connection = sqlite3.connect(self.database_same_dir)
         sql_query = pd.read_sql_query(f'''
                                SELECT
@@ -308,11 +302,8 @@ WHERE datum = ?
             for index, row in df_result.iterrows():
                 print(f'str(row["id"]) \n{str(row["id"])}')
                 if str(row['id']) in str(df_dolasci_id):
-                    print('DAAAA')
-                    print(row[df_dolasci_date])
                     df_result.at[index, df_dolasci_date] = 'DA'
                 else:
-                    print('NEEEE')
                     df_result.at[index, df_dolasci_date] = 'NE'
                     
         columns_to_count = df_result.columns[3:]
@@ -323,9 +314,7 @@ WHERE datum = ?
 
         date_format = '%Y-%m-%d %H:%M:%S'  # Example format, adjust as needed
         for col in df_result.columns[4:]:
-            print(col)
-            new_col_name = dt.datetime.strptime(col, date_format).strftime('%d.%m.%Y')
-            print(col)
+            new_col_name = dt.datetime.strptime(col, date_format).strftime('%d.%m.')
             df_result.rename(columns={col: new_col_name}, inplace=True)
 
         df_result.rename(columns={'ime': 'Ime', 'prezime': 'Prezime'}, inplace=True)
@@ -333,39 +322,36 @@ WHERE datum = ?
         print(f'df_result FINAL \n{df_result}')
         df_result.drop(['id'], axis=1, inplace=True)
 
-        pdf = SimpleDocTemplate(f"{category_sessions} {target_month}.{target_year}.pdf", pagesize=landscape(reportlab.lib.pagesizes.A4), leftMargin=50)
-        table_data = [list(df_result.columns)]
-        for i, row in df_result.iterrows():
-            table_data.append(list(row))
+        fig, ax =plt.subplots(figsize=(11.69, 8.27))
+        #ax.axis('tight')
+        ax.axis('off')
+        the_table = ax.table(cellText=df_result.values,colLabels=df_result.columns,loc='upper left', colWidths=[0.15 for x in df_result.columns])
 
-        table = Table(table_data)
+        for i, cell in enumerate(the_table.get_celld().values()):
+            #cell.set_width(2/len(my_df.columns))
+            row, col = divmod(i, len(df_result.columns))
+            #value = my_df.iloc[row - 3, col]  # Adjust the row index since we start from 1 for data rows
+            value = cell.get_text().get_text()
+            if value == "DA":  # Check if cell value is "Alice"
+                cell.set_facecolor('lightgreen')
+            if row == len(df_result):  # Header row
+                cell.set_text_props(weight='bold', ha='center', va='center')
+                cell.set_facecolor('lightblue')
+            elif row < len(df_result) and col >= 2:  # Data rows
+                cell.set_text_props(ha='center', va='center')
+            else:
+                cell.set_text_props(ha='left', va='center')
 
-        pdfmetrics.registerFont(TTFont('Arial', 'arial.ttf'))  
+        # Set autowidth columns
+        the_table.auto_set_column_width(col=list(range(2, len(df_result.columns))))
 
-        table_style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Arial'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-        ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Arial'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
-        ])
+        plt.title(f'Popis dolazaka - {app.category_chosen} - {target_month}.{target_year}', fontsize=12, loc='left')
 
-        table.setStyle(table_style)
+        plt.tight_layout()
 
-        pdf_table = []
-        pdf_table.append(table)
-
-        pdf.build(pdf_table)
-
-        
-
+        pp = PdfPages(f"Popis dolazaka - {app.category_chosen} - {target_month}.{target_year}.pdf")
+        pp.savefig(fig, bbox_inches='tight')
+        pp.close()
         
 class MyScreenManager(ScreenManager):
     def __init__(self, **kw):
@@ -374,14 +360,6 @@ class MyScreenManager(ScreenManager):
 class ScreenIntro(Screen):
     def __init__(self, **kw):
         super(ScreenIntro, self).__init__(**kw)
-    
-    # Metoda za promjenu atributa objekata iz drugih ekrana - možda staviti u app?
-    def change_screen(self):
-        other_screen = self.manager.get_screen('screen2')
-        other_screen.ids.button_mijena.text = 'Bravooo'
-        other_screen.ids.button_mijena.disabled= True
-        screen2 = Screen2()
-        print(screen2.category_text)
 
 # Pitanje da li mi treba ova klasa - PROVJERA   
 class BoxLayoutScroll(BoxLayout):
@@ -391,30 +369,34 @@ class ScreenAddCategory(Screen):
     category_choice = StringProperty()
     def __init__(self, **kw):
         super().__init__(**kw)
-        self.category_choice = 'NIJE ODABRANA'
-    #?????????
-    new_category = StringProperty('ODABERI KATEGORIJU')
+        self.category_choice = 'ODABERI KATEGORIJU'
+    
+    def create_category_buttons(self):
+        app = App.get_running_app()
+        self.category_box = self.ids.category_box
+        player_categories = ('PRSTIĆI', 'ZAGIĆI', 'LIMAČI', 'MLAĐI PIONIRI', 'PIONIRI', 'KADETI', 'JUNIORI')
+        self.category_box.clear_widgets()
+        for category in player_categories:
+            category_button = ToggleButton(text= category,
+                                        group= "category_buttons", 
+                                        background_color= app.button_a_color,
+                                        pos_hint= {'center_x': 0.5},
+                                        size_hint= [1, None],
+                                        font_size= app.font_size,
+                                        height= app.button_height,
+                                        )
+            category_button.bind(state=self.on_toggle_press)
+            self.category_box.add_widget(category_button)
+            print(category)
 
     def on_toggle_press(self, instance, value):
+        app = App.get_running_app()
         if value == 'down':
             self.category_choice = instance.text
+            app.save_category_button_disabled = False
         else:
-            self.category_choice = 'NIJE ODABRANA'
-
-    #?????????
-    def update_category(self, widget):
-        self.new_category = widget.text
-    
-    #?????????
-    def update_label(self, label_id, new_text):
-        self.category_text = self.new_category
-        self.root.ids[label_id].text = new_text
-    
-    #?????????
-    def change_category(self, screen, widget_id, attribute, command):
-        # Accessing the label widget in OtherScreen and updating its text
-        other_screen = self.manager.get_screen(screen).ids[widget_id]
-        setattr(other_screen, attribute, command)
+            self.category_choice = 'ODABERI KATEGORIJU'
+            app.save_category_button_disabled = True
 
 class ScreenCategoryManager(Screen):
     pass
@@ -426,6 +408,7 @@ class ScreenPlayerManager(Screen):
 
  # Imam opciju da svaki put čitam bazu ili tek kad otvorim category manager učita iz baze u rječnik       
     def fetch_players(self, category):
+        app = App.get_running_app()
         category_players = self.sql_manager.open_category_player_data(category)
         self.player_box = self.ids.player_box
         if category_players:
@@ -434,21 +417,22 @@ class ScreenPlayerManager(Screen):
             for number, player in enumerate(category_players):
                 player_label = ToggleButton(text=f'{number + 1}. {player[2]}, {player[1]}',
                                             group="player_button", 
-                                            height=50,
-                                            size_hint= (0.6, None),
-                                            disabled = False if player[3] else True
+                                            background_color= app.button_a_color,
+                                            size_hint= (1, None),
+                                            font_size= dp(15),
+                                            height= dp(40)
                                             )
                 player_label.bind(state=self.on_toggle_press)
                 self.player_box.add_widget(player_label)
                 print(player)
                 active = 'Aktivan' if player[3] else 'Neaktivan'
-                player_active = Label(text=active, height=50, size_hint= (0.4, None))
+                player_active = Label(text=active, height= dp(40), font_size= dp(15), size_hint= (0.4, None))
                 self.player_box.add_widget(player_active)
         else:
             # provjera category chosen
             print(f'Kategorija odabrana {category}')
             self.player_box.clear_widgets()
-            player_label = Label(text='Nema unesenih igrača', halign='left', valign='middle', height=50, size_hint_y=None)
+            player_label = Label(text='Nema unesenih igrača', font_size= dp(15), height= dp(40), size_hint_y=None)
             self.player_box.add_widget(player_label)
     def on_toggle_press(self, instance, value):
         if value == 'down':
@@ -466,18 +450,52 @@ class ScreenAddPlayer(Screen):
         super(ScreenAddPlayer, self).__init__(**kw)
         self.sql_manager = SqlManager()
 
-    def new_player(self, category_chosen_sql_players, second_name, name):
+    def new_player(self, category_chosen_sql_players, second_name, name, active):
         if len(second_name) < 1 or len(name) < 1:
             message = 'Moraš unijeti ime i prezime!'
             App.get_running_app().show_error_popup(message)
         else:
-            player_list = [(second_name, name)]
+            player_list = [(second_name, name, active)]
             print(player_list, App.get_running_app().category_chosen_sql_players)
             self.sql_manager.insert_category_player_data(category_chosen_sql_players, player_list)
+    
+    def switch_state(self, instance, value):
+        if value == True:
+            self.ids.activity_label.text = 'AKTIVAN'
+            self.ids.activity_label.color = (1, 1, 1, 1)
+            self.ids.activity_label.bold = True
+        else:
+            self.ids.activity_label.text = 'NEAKTIVAN'
+            self.ids.activity_label.color = (0.5, 0.5, 0.5, 1)
+            self.ids.activity_label.bold = False
 
 class ScreenEditPlayer(Screen):
     def __init__(self, **kw):
         super(ScreenEditPlayer, self).__init__(**kw)
+    sql_manager = SqlManager()
+    
+    
+    def player_switch_activity(self, category):
+        app = App.get_running_app()
+        players_edit = self.sql_manager.open_category_player_data(category)
+        for player in players_edit:
+            if app.player_edit[0] == player[1] and app.player_edit[1] == player[0]:
+                player_edit_active = app.player_edit[2]
+                print(app.player_edit[0], player[1], app.player_edit[1], player[0])
+                return True
+            else:
+                return True
+                
+
+    def switch_state(self, instance, value):
+        if value == True:
+            self.ids.activity_label.text = 'AKTIVAN'
+            self.ids.activity_label.color = (1, 1, 1, 1)
+            self.ids.activity_label.bold = True
+        else:
+            self.ids.activity_label.text = 'NEAKTIVAN'
+            self.ids.activity_label.color = (0.5, 0.5, 0.5, 1)
+            self.ids.activity_label.bold = False
 
 class ScreenTrainingManager(Screen):
     def __init__(self, **kw):
@@ -487,6 +505,7 @@ class ScreenTrainingManager(Screen):
 
  # Imam opciju da svaki put čitam bazu ili tek kad otvorim category manager učita iz baze u rječnik       
     def fetch_training(self, category):
+        app = App.get_running_app()
         self.training_box = self.ids.training_box
         if self.sql_manager.open_category_training_data(category):
             self.training_box.clear_widgets()
@@ -498,17 +517,18 @@ class ScreenTrainingManager(Screen):
                 date = App.get_running_app().create_date_format(date)
                 training_label = ToggleButton(text=f'{date}',
                                             group="training_button", 
-                                            height=50,
-                                            size_hint_y= None
+                                            background_color= app.button_a_color,
+                                            size_hint= (1, None),
+                                            font_size= dp(15),
+                                            height= dp(40)
                                             )
                 training_label.bind(state=self.on_toggle_press)
                 self.training_box.add_widget(training_label)
                 print(training)
                 t_or_m = 'Trening' if training[2] == 'trening' else 'Utakmica'
-                training_match = Label(text=t_or_m, height=50, size_hint= (0.4, None))
+                training_match = Label(text=t_or_m, font_size= dp(15), height= dp(40), size_hint= (0.4, None))
                 self.training_box.add_widget(training_match)
                 
-
         else:
             # provjera category chosen
             print(f'Kategorija odabrana {category}')
@@ -555,13 +575,15 @@ class ScreenAddTraining(Screen):
             self.player_box.clear_widgets()
             for number, player in enumerate(category_players):
                 player_label = ToggleButton(text=f'{number + 1}. {player[2]}, {player[1]}',
-                                            height=50,
-                                            size_hint_y= None,
+                                            size_hint= (1, None),
+                                            background_color= app.button_a_color,
+                                            font_size= dp(15),
+                                            height= dp(40),
                                             disabled = False if player[3] else True
                                             )
                 player_label.bind(state=self.on_toggle_press)
                 active = 'Aktivan' if player[3] else 'Neaktivan'
-                player_active = Label(text=active, height=50, size_hint= (0.4, None))
+                player_active = Label(text=active, font_size= dp(15), height= dp(40), size_hint= (0.4, None))
 
                 if action == 'update':
                     self.player_box.add_widget(player_label)
@@ -580,8 +602,10 @@ class ScreenAddTraining(Screen):
                     self.year_input = attendance_screen.ids.year_input.text
                     #self.training_box.clear_widgets()
                     player_label = Label(text=f'{number + 1}. {player[2]}, {player[1]}',
-                                            height=50,
-                                            size_hint_y= None
+                                            size_hint= (1.0, None),
+                                            font_size= dp(15),
+                                            height= dp(40),
+                                            bold= True
                                             )
                     count_attendance = 0
                     count_month = 0
@@ -596,8 +620,9 @@ class ScreenAddTraining(Screen):
                             if player_id in player_list_db:
                                 count_attendance += 1
                     attendance_label = Label(text=f'{count_attendance} / {count_month}',
-                                            height=50,
-                                            size_hint_y= None,
+                                            size_hint= (1, None),
+                                            font_size= dp(15),
+                                            height= dp(40),
                                             halign = 'left'
                                             )
                         
@@ -613,8 +638,9 @@ class ScreenAddTraining(Screen):
             # provjera category chosen
             print(f'Kategorija odabrana {category}')
             self.player_box.clear_widgets()
-            player_label = Label(text='Nema unesenih igrača', halign='left', valign='middle', height=50, size_hint_y=None)
+            player_label = Label(text='Nema unesenih igrača', halign='left', valign='middle', height=dp(40),font_size= dp(15), size_hint_y=None)
             self.player_box.add_widget(player_label)
+        
 
     def on_toggle_press(self, instance, value):
         player_id = int(instance.text.split('.')[0])
@@ -705,6 +731,15 @@ class MyFootballApp(App):
     player_edit = ObjectProperty()
     klub = StringProperty()
     edit_button_disabled = BooleanProperty(True)
+    save_category_button_disabled = BooleanProperty(True)
+
+    button_height = dp(40)
+    font_size = dp(15)
+    padding = dp(40)
+    spacing = dp(10)    
+    button_a_color = get_color_from_hex('#3277ad')
+    button_b_color = get_color_from_hex('#00004A')
+    button_c_color = get_color_from_hex('#000031')
     
     def build(self): 
 
@@ -726,6 +761,7 @@ class MyFootballApp(App):
             self.sql_manager.insert_category_used(self.category_chosen)
 # Provjera - naknadno brisanje
             print(self.category_chosen, self.category_chosen_sql_players, self.category_chosen_sql_training)
+        
         kv = Builder.load_file('myfootball.kv')
         return kv  
     
